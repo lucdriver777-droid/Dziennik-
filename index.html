@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dziennik kierowcy</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; display: flex; flex-direction: column; min-height: 100vh;}
+    h1 { text-align: center; }
+    .grid { display: grid; gap: 16px; flex: 1; }
+    .form-box { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+    label { display: block; margin-top: 10px; font-weight: bold; }
+    input, select, button { width: 100%; padding: 10px; margin-top: 5px; border-radius: 8px; border: 1px solid #ccc; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    button { background: #007bff; color: white; border: none; cursor: pointer; margin-top: 15px; }
+    button:hover { background: #0056b3; }
+    .btn-secondary { background: #6c757d; }
+    .btn-danger { background: #dc3545; }
+    .btn-print { background: #198754; }
+    .btn-pdf { background: #0d6efd; }
+    .toolbar { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
+    th, td { border: 1px solid #ddd; padding: 10px; text-align: center; }
+    th { background: #007bff; color: white; position: sticky; top: 0; }
+    .actions { display: flex; gap: 6px; justify-content: center; }
+    footer { text-align: center; margin-top: 20px; color: #666; font-size: 14px; }
+    @media print {
+      footer { display: none !important; }
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+  <h1>🚛 Dziennik kierowcy</h1>
+  <div class="print-meta" id="printMeta"></div>
+
+  <div class="grid">
+    <div class="form-box">
+      <div class="row">
+        <div>
+          <label for="driver">Kierowca (imię i nazwisko)</label>
+          <input type="text" id="driver" placeholder="np. Jan Kowalski" oninput="saveHeader()" />
+        </div>
+        <div>
+          <label for="carNo">Nr auta</label>
+          <input type="text" id="carNo" placeholder="np. SK 1234A" oninput="saveHeader()" />
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="type">Rodzaj operacji</label>
+          <select id="type">
+            <option value="Załadunek">Załadunek</option>
+            <option value="Rozładunek">Rozładunek</option>
+          </select>
+        </div>
+        <div>
+          <label for="date">Data</label>
+          <input type="date" id="date" />
+        </div>
+      </div>
+      <label for="place">Miejsce</label>
+      <input type="text" id="place" placeholder="np. Katowice, DHL magazyn" />
+      <label for="odometer">Stan licznika (km)</label>
+      <input type="number" id="odometer" inputmode="numeric" placeholder="np. 152340" />
+      <div class="row">
+        <button onclick="addEntry()">➕ Dodaj wpis</button>
+        <button class="btn-secondary" onclick="exportCSV()">💾 Eksportuj CSV</button>
+      </div>
+      <div class="row">
+        <button class="btn-pdf" onclick="exportPDF()">📄 Eksportuj PDF (poziomo)</button>
+        <button class="btn-print" onclick="saveAsPDF()">🖨️ Zapisz przez okno druku</button>
+      </div>
+      <div class="row">
+        <button class="btn-danger" onclick="clearLog()">🗑️ Wyczyść wszystko</button>
+        <button class="btn-secondary" onclick="installPWA()" id="installBtn" style="display:none;">📲 Zainstaluj jako apkę</button>
+      </div>
+    </div>
+
+    <div class="form-box">
+      <div class="toolbar">
+        <div>
+          <label for="filterType">Filtr rodzaju</label>
+          <select id="filterType" onchange="render()">
+            <option value="ALL">Wszystkie</option>
+            <option value="Załadunek">Załadunek</option>
+            <option value="Rozładunek">Rozładunek</option>
+          </select>
+        </div>
+        <div>
+          <label for="searchPlace">Szukaj miejsca</label>
+          <input type="text" id="searchPlace" placeholder="np. Katowice" oninput="render()" />
+        </div>
+      </div>
+      <table id="logTable">
+        <thead>
+          <tr>
+            <th>#</th><th>Data</th><th>Rodzaj</th><th>Miejsce</th><th>Licznik (km)</th><th>Akcje</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer>Twórcy: Łukasz Stasinski & ChatGPT (GPT-5)</footer>
+
+<script>
+let entries = [];
+let installEvent = null;
+
+const todayStr = () => new Date().toISOString().slice(0,10);
+const byNewest = (a,b) => b.ts - a.ts;
+const persist = () => localStorage.setItem('driverLog_v2', JSON.stringify(entries));
+const load = () => {
+  const raw = localStorage.getItem('driverLog_v2') || localStorage.getItem('driverLog');
+  if (!raw) return [];
+  try {
+    const arr = JSON.parse(raw);
+    return arr.map((e,i)=>({
+      id: e.id ?? (i+1),
+      date: e.date,
+      type: e.type,
+      place: e.place,
+      odometer: String(e.odometer),
+      ts: e.ts ?? new Date(e.date+'T00:00:00').getTime() + i
+    })).sort(byNewest);
+  } catch(_) { return []; }
+}
+const nextId = () => entries.length ? Math.max(...entries.map(e=>e.id))+1 : 1;
+
+function setDefaultDate(){
+  const el = document.getElementById('date');
+  if (el && !el.value) el.value = todayStr();
+  const d = localStorage.getItem('driverName');
+  const c = localStorage.getItem('carNumber');
+  if (d && document.getElementById('driver')) document.getElementById('driver').value = d;
+  if (c && document.getElementById('carNo')) document.getElementById('carNo').value = c;
+}
+function clearForm(){
+  document.getElementById('place').value='';
+  document.getElementById('odometer').value='';
+  document.getElementById('type').value='Załadunek';
+  document.getElementById('date').value=todayStr();
+}
+
+function render(){
+  const tbody=document.querySelector('#logTable tbody');
+  tbody.innerHTML='';
+  const fType=document.getElementById('filterType').value;
+  const q=document.getElementById('searchPlace').value.toLowerCase().trim();
+  const filtered=entries.filter(e=>fType==='ALL'||e.type===fType).filter(e=>!q||e.place.toLowerCase().includes(q)).sort(byNewest);
+  filtered.forEach((e,idx)=>{
+    const row=tbody.insertRow();
+    row.insertCell(0).innerText=idx+1;
+    row.insertCell(1).innerText=e.date;
+    row.insertCell(2).innerText=e.type;
+    row.insertCell(3).innerText=e.place;
+    row.insertCell(4).innerText=e.odometer;
+    const actions=row.insertCell(5);
+    actions.className='actions';
+    const editBtn=document.createElement('button');
+    editBtn.innerText='✏️ Edytuj'; editBtn.className='btn-secondary';
+    editBtn.onclick=()=>editEntry(e.id);
+    const delBtn=document.createElement('button');
+    delBtn.innerText='🗑️ Usuń'; delBtn.className='btn-danger';
+    delBtn.onclick=()=>deleteEntry(e.id);
+    actions.append(editBtn, delBtn);
+  });
+}
+
+function addEntry(){
+  const type=document.getElementById('type').value;
+  const date=document.getElementById('date').value||todayStr();
+  const place=document.getElementById('place').value.trim();
+  const odo=document.getElementById('odometer').value.trim();
+  if(!place||!odo){alert('Wpisz miejsce i stan licznika!');return;}
+  if(!/^\d{1,9}$/.test(odo)){alert('Stan licznika musi być liczbą całkowitą (0-999 999 999).');return;}
+  const entry={id:nextId(),date,type,place,odometer:odo,ts:Date.now()};
+  entries.push(entry); persist(); render(); clearForm();
+}
+
+function deleteEntry(id){ if(!confirm('Usunąć ten wpis?')) return; entries=entries.filter(e=>e.id!==id); persist(); render(); }
+function editEntry(id){
+  const e=entries.find(x=>x.id===id); if(!e) return;
+  const newDate=prompt('Data (RRRR-MM-DD):', e.date)||e.date;
+  const newType=prompt('Rodzaj (Załadunek/Rozładunek):', e.type)||e.type;
+  const newPlace=prompt('Miejsce:', e.place)||e.place;
+  const newOdo=prompt('Licznik (km):', e.odometer)||e.odometer;
+  if(!/^\d{1,9}$/.test(String(newOdo))){alert('Stan licznika musi być liczbą całkowitą.');return;}
+  e.date=newDate; e.type=newType; e.place=newPlace; e.odometer=String(newOdo); e.ts=e.ts||Date.now();
+  persist(); render();
+}
+
+function exportCSV(){
+  const data=getFiltered(); const pairs=buildPairs(data);
+  let csv='Data Z.,Miejsce Z.,Licznik Z.,Data R.,Miejsce R.,Licznik R.\n';
+  pairs.forEach(p=>{
+    const row=[p.loadDate,(p.loadPlace||'').replaceAll(',', ' '),p.loadOdo,p.unloadDate,(p.unloadPlace||'').replaceAll(',', ' '),p.unloadOdo].join(',');
+    csv+=row+'\n';
+  });
+  const blob=new Blob([csv],{type:'text/csv'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download='dziennik_kierowcy.csv'; a.click();
+}
+
+function saveAsPDF(){ window.print(); }
+
+function getFiltered(){
+  const fType=document.getElementById('filterType').value;
+  const q=document.getElementById('searchPlace').value.toLowerCase().trim();
+  const byDateThenTs=(a,b)=>(a.date.localeCompare(b.date)||(a.ts-b.ts));
+  return entries.filter(e=>fType==='ALL'||e.type===fType).filter(e=>!q||e.place.toLowerCase().includes(q)).sort(byDateThenTs);
+}
+
+function buildPairs(list){
+  let currentLoad=null; let loadHasUnload=false; const rows=[];
+  for(const e of list){
+    if(e.type==='Załadunek'){
+      if(currentLoad && !loadHasUnload){
+        rows.push({loadDate:currentLoad.date,loadPlace:currentLoad.place,loadOdo:String(currentLoad.odometer||''),unloadDate:'',unloadPlace:'',unloadOdo:''});
+      }
+      currentLoad=e; loadHasUnload=false;
+    } else if(e.type==='Rozładunek'){
+      if(currentLoad){
+        rows.push({loadDate:currentLoad.date,loadPlace:currentLoad.place,loadOdo:String(currentLoad.odometer||''),unloadDate:e.date,unloadPlace:e.place,unloadOdo:String(e.odometer||'')});
+        loadHasUnload=true;
+      } else {
+        rows.push({loadDate:'',loadPlace:'',loadOdo:'',unloadDate:e.date,unloadPlace:e.place,unloadOdo:String(e.odometer||'')});
+      }
+    }
+  }
+  if(currentLoad && !loadHasUnload){
+    rows.push({loadDate:currentLoad.date,loadPlace:currentLoad.place,loadOdo:String(currentLoad.odometer||''),unloadDate:'',unloadPlace:'',unloadOdo:''});
+  }
+  return rows;
+}
+
+async function exportPDF(){
+  const data=getFiltered();
+  const pairs=buildPairs(data);
+  const driver=(document.getElementById('driver')?.value||localStorage.getItem('driverName')||'').trim();
+  const carNo=(document.getElementById('carNo')?.value||localStorage.getItem('carNumber')||'').trim();
+  const wrap=document.createElement('div');
+  wrap.className='pdf-table'; wrap.style.fontFamily='Arial, sans-serif';
+  const h=document.createElement('h2'); h.textContent='Dziennik kierowcy – Z/R w jednej linii';
+  const metaP=document.createElement('div'); metaP.style.marginBottom='8px';
+  const now=new Date(); metaP.textContent=`Kierowca: ${driver||'-'} • Nr auta: ${carNo||'-'} • Wygenerowano: ${now.toLocaleDateString()}`;
+  const table=document.createElement('table'); table.style.width='100%'; table.style.borderCollapse='collapse'; table.style.fontSize='12px';
+  table.innerHTML=`
+    <colgroup>
+      <col style="width: 70pt" /><col style="width: 210pt" /><col style="width: 80pt" />
+      <col style="width: 70pt" /><col style="width: 210pt" /><col style="width: 80pt" />
+    </colgroup>
+    <thead><tr>
+      <th style="border:1px solid #999;padding:6pt;background:#eee">Data Z.</th>
+      <th style="border:1px solid #999;padding:6pt;background:#eee">Miejsce Z.</th>
+      <th style="border:1px solid #999;padding:6pt;background:#eee">Licznik Z.</th>
+      <th style="border:1px solid #999;padding:6pt;background:#eee">Data R.</th>
+      <th style="border:1px solid #999;padding:6pt;background:#eee">Miejsce R.</th>
+      <th style="border:1px solid #999;padding:6pt;background:#eee">Licznik R.</th>
+    </tr></thead><tbody></tbody>`;
+  const tbody=table.querySelector('tbody');
+  for(const p of pairs){ const tr=document.createElement('tr'); const cells=[p.loadDate,p.loadPlace,p.loadOdo,p.unloadDate,p.unloadPlace,p.unloadOdo]; cells.forEach((val,i)=>{ const td=document.createElement('td'); td.textContent=val||''; td.style.border='1px solid #999'; td.style.padding='6pt'; td.style.textAlign=(i===1||i===4)?'left':'center'; td.style.wordBreak='break-word'; td.style.hyphens='auto'; tr.appendChild(td); }); tbody.appendChild(tr); }
+  wrap.append(h, metaP, table); document.body.appendChild(wrap);
+  const opt={ margin:[16,16,16,16], filename:'dziennik_kierowcy.pdf', image:{type:'jpeg',quality:0.98}, html2canvas:{scale:2,useCORS:true}, jsPDF:{unit:'pt',format:'a4',orientation:'landscape'} };
+  await html2pdf().from(wrap).set(opt).save();
+  document.body.removeChild(wrap);
+}
+
+window.addEventListener('beforeinstallprompt',(e)=>{ e.preventDefault(); installEvent=e; document.getElementById('installBtn').style.display='block'; });
+function installPWA(){ if(installEvent){ installEvent.prompt(); } }
+function saveHeader(){ const d=document.getElementById('driver')?.value||''; const c=document.getElementById('carNo')?.value||''; localStorage.setItem('driverName',d); localStorage.setItem('carNumber',c); }
+
+window.onload=()=>{ entries=load(); setDefaultDate(); render(); }
+</script>
+</body>
+</html>
