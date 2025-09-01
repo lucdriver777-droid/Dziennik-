@@ -33,6 +33,11 @@
   <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
 </head>
 <body>
+  <script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
+  }
+  </script>
   <h1>🚛 Dziennik kierowcy</h1>
   <div class="print-meta" id="printMeta"></div>
 
