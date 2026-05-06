@@ -8,67 +8,65 @@
     <link rel="manifest" href="manifest.webmanifest">
     <style>
         body { font-family: Arial, sans-serif; margin: 15px; background: #f5f5f5; }
-        h1 { text-align: center; color: #333; }
-        .container { max-width: 1000px; margin: 0 auto; }
-        .form-box { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 15px; }
-        label { display: block; margin: 10px 0 5px; font-weight: bold; }
-        input, select, button { width: 100%; padding: 10px; margin-bottom: 8px; border-radius: 8px; border: 1px solid #ccc; font-size: 16px; box-sizing: border-box; }
-        .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        h1 { text-align: center; color: #222; }
+        .form-box { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        label { display: block; margin: 12px 0 6px; font-weight: bold; color: #333; }
+        input, select, button { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ccc; font-size: 16px; box-sizing: border-box; }
+        .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
         button { background: #007bff; color: white; border: none; cursor: pointer; font-weight: bold; }
         button:hover { background: #0056b3; }
         .btn-secondary { background: #6c757d; }
         .btn-danger { background: #dc3545; }
-        .btn-pdf { background: #0d6efd; }
+        .btn-pdf { background: #0d6efd; font-size: 17px; }
         table { width: 100%; border-collapse: collapse; background: white; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: center; }
         th { background: #007bff; color: white; }
-        .actions button { margin: 2px; padding: 5px 8px; font-size: 14px; }
-        footer { text-align: center; margin-top: 20px; color: #666; }
     </style>
-    <!-- Biblioteka do PDF -->
     <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
 </head>
 <body>
-<div class="container">
-    <h1>🚛 Dziennik kierowcy</h1>
 
-    <div class="form-box">
-        <div class="row">
-            <div><label>Kierowca</label><input type="text" id="driver" placeholder="Jan Kowalski" oninput="saveHeader()"></div>
-            <div><label>Nr auta</label><input type="text" id="carNo" placeholder="SK 1234A" oninput="saveHeader()"></div>
-        </div>
-        <div class="row">
-            <div><label>Rodzaj</label>
-                <select id="type"><option value="Załadunek">Załadunek</option><option value="Rozładunek">Rozładunek</option></select>
-            </div>
-            <div><label>Data</label><input type="date" id="date"></div>
-        </div>
-        <label>Miejsce</label><input type="text" id="place" placeholder="Katowice, DHL">
-        <label>Stan licznika (km)</label><input type="number" id="odometer" placeholder="152340">
+<div class="form-box">
+    <h1>🚛 Dziennik Kierowcy</h1>
 
-        <div class="row">
-            <button onclick="addEntry()">➕ Dodaj wpis</button>
-            <button class="btn-secondary" onclick="exportCSV()">💾 CSV</button>
-        </div>
-        <div class="row">
-            <button class="btn-pdf" onclick="exportPDF()">📄 Eksportuj PDF</button>
-            <button onclick="window.print()">🖨️ Drukuj stronę</button>
-        </div>
-        <button class="btn-danger" onclick="clearLog()" style="width:100%; margin-top:10px;">🗑️ Wyczyść wszystko</button>
+    <div class="row">
+        <div><label>Kierowca</label><input type="text" id="driver" placeholder="Jan Kowalski" oninput="saveHeader()"></div>
+        <div><label>Nr rejestracyjny</label><input type="text" id="carNo" placeholder="SK 1234A" oninput="saveHeader()"></div>
     </div>
 
-    <div class="form-box">
-        <table id="logTable">
-            <thead><tr><th>#</th><th>Data</th><th>Rodzaj</th><th>Miejsce</th><th>Licznik</th><th>Akcje</th></tr></thead>
-            <tbody></tbody>
-        </table>
+    <div class="row">
+        <div><label>Rodzaj operacji</label>
+            <select id="type">
+                <option value="Załadunek">Załadunek</option>
+                <option value="Rozładunek">Rozładunek</option>
+            </select>
+        </div>
+        <div><label>Data</label><input type="date" id="date"></div>
     </div>
+
+    <label>Miejsce</label><input type="text" id="place" placeholder="np. Katowice - Magazyn DHL">
+    <label>Stan licznika (km)</label><input type="number" id="odometer" placeholder="152340">
+
+    <div class="row" style="margin-top:15px">
+        <button onclick="addEntry()">➕ Dodaj wpis</button>
+        <button class="btn-secondary" onclick="exportCSV()">💾 Eksport CSV</button>
+    </div>
+    <div class="row">
+        <button class="btn-pdf" onclick="exportPDF()">📄 Generuj elegancki PDF</button>
+        <button onclick="window.print()">🖨️ Drukuj stronę</button>
+    </div>
+    <button onclick="clearLog()" class="btn-danger" style="margin-top:10px">🗑️ Wyczyść wszystko</button>
 </div>
 
-<footer>© Dziennik kierowcy • Ulepszone przez Grok</footer>
+<div class="form-box">
+    <table id="logTable">
+        <thead><tr><th>#</th><th>Data</th><th>Rodzaj</th><th>Miejsce</th><th>Licznik km</th><th>Akcje</th></tr></thead>
+        <tbody></tbody>
+    </table>
+</div>
 
 <script>
-// ==================== DANE I FUNKCJE PODSTAWOWE ====================
+// ==================== DANE ====================
 let entries = [];
 
 const todayStr = () => new Date().toISOString().slice(0,10);
@@ -99,87 +97,93 @@ function render() {
             <td>${i+1}</td>
             <td>${e.date}</td>
             <td>${e.type}</td>
-            <td>${e.place}</td>
+            <td style="text-align:left">${e.place}</td>
             <td>${e.odometer}</td>
-            <td class="actions">
-                <button onclick="editEntry(${e.id})">✏️</button>
-                <button onclick="deleteEntry(${e.id})">🗑️</button>
-            </td>
+            <td><button onclick="deleteEntry(${e.id})">🗑️</button></td>
         `;
     });
 }
 
-// ==================== PDF – NAPRAWIONA WERSJA ====================
+// ==================== ELEGANCKI PDF ====================
 async function exportPDF() {
     if (entries.length === 0) {
         alert("Brak wpisów do wygenerowania PDF!");
         return;
     }
 
-    const driver = document.getElementById('driver').value || localStorage.getItem('driverName') || 'Kierowca';
-    const carNo = document.getElementById('carNo').value || localStorage.getItem('carNumber') || '';
+    const driver = document.getElementById('driver').value || localStorage.getItem('driverName') || "Kierowca";
+    const carNo = document.getElementById('carNo').value || localStorage.getItem('carNumber') || "";
 
-    // Tworzymy ładną tabelę do PDF
-    let html = `
-        <div style="font-family: Arial, sans-serif; padding: 20px;">
-            <h1 style="text-align:center;">Dziennik Kierowcy</h1>
-            <p><strong>Kierowca:</strong> ${driver} &nbsp;&nbsp; <strong>Auto:</strong> ${carNo}</p>
-            <table border="1" cellpadding="8" cellspacing="0" style="width:100%; border-collapse: collapse; margin-top:15px;">
+    let tableHTML = `
+        <div style="font-family: Arial, sans-serif; padding: 30px 20px; max-width: 1000px; margin: 0 auto;">
+            <h1 style="text-align:center; color:#007bff; margin-bottom:5px;">DZIENNIK KIEROWCY</h1>
+            <p style="text-align:center; color:#555; margin-bottom:30px;">
+                ${driver}  •  ${carNo}  •  ${new Date().toLocaleDateString('pl-PL')}
+            </p>
+            
+            <table style="width:100%; border-collapse:collapse; border:2px solid #007bff;">
                 <thead>
                     <tr style="background:#007bff; color:white;">
-                        <th>#</th><th>Data</th><th>Rodzaj</th><th>Miejsce</th><th>Stan licznika (km)</th>
+                        <th style="padding:12px; border:1px solid #0056b3;">Lp.</th>
+                        <th style="padding:12px; border:1px solid #0056b3;">Data</th>
+                        <th style="padding:12px; border:1px solid #0056b3;">Rodzaj</th>
+                        <th style="padding:12px; border:1px solid #0056b3; text-align:left;">Miejsce</th>
+                        <th style="padding:12px; border:1px solid #0056b3;">Licznik (km)</th>
                     </tr>
                 </thead>
                 <tbody>`;
 
     entries.forEach((e, i) => {
-        html += `<tr>
-            <td>${i+1}</td>
-            <td>${e.date}</td>
-            <td>${e.type}</td>
-            <td style="text-align:left;">${e.place}</td>
-            <td>${e.odometer}</td>
-        </tr>`;
+        tableHTML += `
+            <tr style="background:${i%2===0 ? '#f8f9fa' : 'white'};">
+                <td style="padding:12px; border:1px solid #ddd; text-align:center;">${i+1}</td>
+                <td style="padding:12px; border:1px solid #ddd; text-align:center;">${e.date}</td>
+                <td style="padding:12px; border:1px solid #ddd; text-align:center;">${e.type}</td>
+                <td style="padding:12px; border:1px solid #ddd;">${e.place}</td>
+                <td style="padding:12px; border:1px solid #ddd; text-align:right;">${parseInt(e.odometer).toLocaleString('pl-PL')}</td>
+            </tr>`;
     });
 
-    html += `</tbody></table></div>`;
+    tableHTML += `</tbody></table>
+        <p style="text-align:center; margin-top:40px; color:#666; font-size:14px;">
+            Dokument wygenerowany automatycznie • ${new Date().toLocaleString('pl-PL')}
+        </p>
+    </div>`;
 
     const element = document.createElement('div');
-    element.innerHTML = html;
+    element.innerHTML = tableHTML;
 
     const opt = {
-        margin: [10, 10, 10, 10],
-        filename: `Dziennik_${driver.replace(/ /g,'_')}_${new Date().toISOString().slice(0,10)}.pdf`,
+        margin: [15, 10, 15, 10],
+        filename: `Dziennik_${driver.replace(/ /g, '_')}_${new Date().toISOString().slice(0,10)}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 },
+        html2canvas: { scale: 2, useCORS: true },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
     try {
         await html2pdf().set(opt).from(element).save();
     } catch (err) {
-        alert("Błąd podczas generowania PDF: " + err.message);
-        console.error(err);
+        alert("Błąd przy generowaniu PDF: " + err.message);
     }
 }
 
-// Reszta funkcji (addEntry, deleteEntry, editEntry, clearLog, saveHeader itd.)
-function addEntry() {
+// Pozostałe funkcje
+function addEntry() { /* Twoja funkcja dodawania */ 
     const type = document.getElementById('type').value;
     const date = document.getElementById('date').value || todayStr();
     const place = document.getElementById('place').value.trim();
     const odo = document.getElementById('odometer').value.trim();
-
-    if (!place || !odo) { alert('Wpisz miejsce i stan licznika!'); return; }
-
-    const entry = {
-        id: entries.length ? Math.max(...entries.map(e => e.id)) + 1 : 1,
+    if (!place || !odo) return alert('Uzupełnij miejsce i licznik!');
+    
+    entries.push({
+        id: entries.length ? Math.max(...entries.map(e=>e.id))+1 : 1,
         date, type, place, odometer: odo, ts: Date.now()
-    };
-    entries.push(entry);
+    });
     persist();
     render();
-    clearForm();
+    document.getElementById('place').value = '';
+    document.getElementById('odometer').value = '';
 }
 
 function deleteEntry(id) {
@@ -190,23 +194,14 @@ function deleteEntry(id) {
     }
 }
 
-function editEntry(id) { /* dodaj własną logikę edycji jeśli chcesz */ }
-
 function clearLog() {
-    if (!confirm('🗑️ Na pewno wyczyścić WSZYSTKO?')) return;
+    if (!confirm('Na pewno wyczyścić wszystkie dane?')) return;
     localStorage.clear();
     entries = [];
+    render();
     document.getElementById('driver').value = '';
     document.getElementById('carNo').value = '';
-    clearForm();
-    render();
-    alert('✅ Dane usunięte!');
-}
-
-function clearForm() {
-    document.getElementById('place').value = '';
-    document.getElementById('odometer').value = '';
-    document.getElementById('date').value = todayStr();
+    alert('Dane zostały usunięte.');
 }
 
 function saveHeader() {
@@ -214,7 +209,7 @@ function saveHeader() {
     localStorage.setItem('carNumber', document.getElementById('carNo').value);
 }
 
-// ==================== START ====================
+// Start
 window.onload = () => {
     entries = load();
     document.getElementById('date').value = todayStr();
